@@ -6,7 +6,7 @@
 
 import re
 
-from langchain_community.chat_models import ChatTongyi
+from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
 

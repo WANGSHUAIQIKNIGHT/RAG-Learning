@@ -11,7 +11,7 @@ import tempfile
 import requests
 from bs4 import BeautifulSoup
 
-from langchain_community.chat_models import ChatTongyi
+from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
 llm = ChatTongyi(model="qwen-plus", temperature=0.0)
