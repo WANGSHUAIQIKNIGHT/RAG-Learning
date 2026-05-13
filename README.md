@@ -26,11 +26,12 @@ RAG（检索增强生成）与 Agent（智能体）学习项目，基于 LangCha
 | A2 | 步骤A2_LangChain_Agent基础.py | LangChain Agent 框架使用 |
 | A3 | 步骤A3_手写简易Agent.py | 不依赖框架，自己实现 ReAct 循环 |
 | A4 | 步骤A4_工具调用实战.py | 接入真实工具（文件读写、网页抓取、Python 执行） |
+| A5 | 步骤A5_多Agent协作.py | LangGraph 状态图，Research Agent + Writer Agent 多步协作 |
 
 ## 运行要求
 
 ```bash
-pip install langchain-community langchain-core requests beautifulsoup4
+pip install langchain-community langchain-core langgraph requests beautifulsoup4
 ```
 
 需要在环境变量中配置 `DASHSCOPE_API_KEY`（通义千问 API Key）。
@@ -38,5 +39,5 @@ pip install langchain-community langchain-core requests beautifulsoup4
 ## 学习路线
 
 1. 先跑通 **RAG 步骤 1~7**，理解检索增强生成全流程
-2. 进入 **Agent 步骤 A1~A4**，从原理到手写到工具调用
-3. 后续规划：多 Agent 协作（LangGraph）
+2. 进入 **Agent 步骤 A1~A5**，从原理到手写到工具调用再到多 Agent 协作
+3. 持续规划中...
