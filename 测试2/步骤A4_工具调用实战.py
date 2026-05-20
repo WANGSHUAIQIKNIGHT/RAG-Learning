@@ -44,8 +44,8 @@ TOOLS = [
         },
     },
     {
-        "name": "web_search",
-        "description": "抓取指定 URL 的网页内容并提取文本（获取实时信息）",
+        "name": "fetch_url",
+        "description": "读取指定 URL 的网页内容并返回纯文本，参数 url 必须是完整的网页地址",
         "parameters": {
             "type": "object",
             "properties": {
@@ -87,7 +87,7 @@ def write_file(file_path: str, content: str) -> str:
         return f"写入失败：{e}"
 
 
-def web_search(url: str) -> str:
+def fetch_url(url: str) -> str:
     try:
         resp = requests.get(url, timeout=10, headers={
             "User-Agent": "Mozilla/5.0 (compatible; Agent-Learning/1.0)"
@@ -134,7 +134,7 @@ def execute_python(code: str) -> str:
 TOOL_MAP = {
     "read_file": read_file,
     "write_file": write_file,
-    "web_search": web_search,
+    "fetch_url": fetch_url,
     "execute_python": execute_python,
 }
 

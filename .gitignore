@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+
+# Environment
+.env
+.env.local
+
+# Generated / temp files
+测试2/sum.txt
+测试2/test.txt
+测试2/output.md
+测试2/transformer_diagram.py
+测试2/transformer_架构图.png
+测试2/练习代码demo.py
+测试2/代码练习.py
+测试2/简历1.py
+
+# PDF / docs
+*.pdf
+*.png
+*.jpg
+
+# Test data
+ds测试/
+ds测试1/
+
+# Claude
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
