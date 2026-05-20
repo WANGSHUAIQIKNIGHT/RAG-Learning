@@ -148,6 +148,24 @@ WRITER_SYSTEM_PROMPT = """你是 Writer Agent（写作助理）。
 - 文档结构清晰，包含标题和分点
 - 输出格式：说明你写了什么、保存在哪里"""
 
+SUPERVISOR_SYSTEM_PROMPT = """你是 Supervisor Agent（质量监管）。
+你的职责是检查 Research Agent 和 Writer Agent 的工作成果，确保质量达标。
+
+检查 Research Agent 时（标准）：
+1. 调研内容是否与问题相关
+2. 信息是否足够支撑写一份文档
+3. 是否有明显的错误或编造
+
+检查 Writer Agent 时（标准）：
+1. 文档结构是否完整（标题、分点）
+2. 内容是否基于 Research 的成果，没有额外编造
+3. 是否成功保存到了文件
+
+输出格式（严格按此格式）：
+通过：PASS
+意见：<你的反馈意见>
+如果不通过，请在意见中说明具体哪里需要改进。"""
+
 
 # ============================================================
 # 3. LangGraph 状态图
@@ -156,9 +174,11 @@ WRITER_SYSTEM_PROMPT = """你是 Writer Agent（写作助理）。
 class AgentState(TypedDict):
     """整个工作流的状态"""
     messages: Annotated[Sequence[BaseMessage], operator.add]
-    next_agent: str          # 当前应该哪个 Agent 工作
-    research_result: str     # Research Agent 的输出
-    final_output: str        # 最终输出
+    next_agent: str              # 当前应该哪个 Agent 工作
+    research_result: str         # Research Agent 的输出
+    final_output: str            # 最终输出
+    supervisor_feedback: str     # 监管者的反馈意见
+    retry_count: int             # 当前已返工次数
 
 
 def research_agent(state: AgentState) -> dict:
@@ -170,9 +190,13 @@ def research_agent(state: AgentState) -> dict:
     # 从用户消息里提取研究问题
     user_msg = state["messages"][-1].content
 
+    # 如果有监管反馈（被打回重做），带上反馈意见
+    feedback = state.get("supervisor_feedback", "")
+    feedback_msg = f"\n\n监管者反馈意见（请根据以下意见改进）：\n{feedback}" if feedback else ""
+
     messages = [
         SystemMessage(content=RESEARCH_SYSTEM_PROMPT),
-        HumanMessage(content=f"请调研以下主题，收集相关信息：\n{user_msg}"),
+        HumanMessage(content=f"请调研以下主题，收集相关信息：\n{user_msg}{feedback_msg}"),
     ]
 
     # 循环调用，让 Agent 自主决定搜索什么
@@ -197,7 +221,7 @@ def research_agent(state: AgentState) -> dict:
 
     return {
         "research_result": research_text,
-        "next_agent": "writer",
+        "next_agent": "supervisor",
     }
 
 
@@ -209,11 +233,15 @@ def writer_agent(state: AgentState) -> dict:
 
     research = state.get("research_result", "")
 
+    # 如果有监管反馈（被打回重做），带上反馈意见
+    feedback = state.get("supervisor_feedback", "")
+    feedback_msg = f"\n\n监管者反馈意见（请根据以下意见改进）：\n{feedback}" if feedback else ""
+
     messages = [
         SystemMessage(content=WRITER_SYSTEM_PROMPT),
         HumanMessage(
             content=f"以下是 Research Agent 收集到的信息：\n\n{research}\n\n"
-                    f"请根据这些信息撰写一份文档，并用 write_file 保存到 'output.md'。"
+                    f"请根据这些信息撰写一份文档，并用 write_file 保存到 'output.md'。{feedback_msg}"
         ),
     ]
 
@@ -237,11 +265,85 @@ def writer_agent(state: AgentState) -> dict:
 
     return {
         "final_output": output,
-        "next_agent": "finish",
+        "next_agent": "supervisor",
     }
 
 
-def router(state: AgentState) -> Literal["research", "writer", "__end__"]:
+def supervisor_agent(state: AgentState) -> dict:
+    """Supervisor Agent 节点：检查 Research 或 Writer 的成果"""
+    print(f"{'='*50}")
+    print(f"  [Supervisor Agent] 开始审核...")
+    print(f"{'='*50}")
+
+    retry_count = state.get("retry_count", 0)
+    max_retries = 3
+
+    # 判断当前审核哪个阶段：research_result 已有但 final_output 还没有 → 审 Research
+    # 否则审 Writer
+    reviewing_research = bool(state.get("research_result")) and not bool(state.get("final_output"))
+
+    if reviewing_research:
+        target = "Research Agent"
+        content = state.get("research_result", "")
+    else:
+        target = "Writer Agent"
+        content = state.get("final_output", "")
+
+    print(f"  审核对象: {target}")
+    print(f"  当前返工次数: {retry_count}/{max_retries}")
+
+    messages = [
+        SystemMessage(content=SUPERVISOR_SYSTEM_PROMPT),
+        HumanMessage(
+            content=f"请审核以下 {target} 的工作成果：\n\n{content[:1000]}\n\n"
+                    f"按格式输出 PASS 或 FAIL 及意见。"
+        ),
+    ]
+
+    response = llm.invoke(messages)
+    reply = response.content
+    print(f"  审核结论: {reply[:200]}")
+
+    is_pass = "PASS" in reply.upper()
+
+    if is_pass:
+        print(f"  [Supervisor] ✓ {target} 成果通过审核\n")
+        if reviewing_research:
+            return {
+                "next_agent": "writer",
+                "supervisor_feedback": reply,
+                "retry_count": 0,  # 通过就重置计数器
+            }
+        else:
+            return {
+                "next_agent": "finish",
+                "supervisor_feedback": reply,
+                "retry_count": 0,
+            }
+    else:
+        if retry_count >= max_retries:
+            print(f"  [Supervisor] ⚠ 已达最大返工次数，强制通过\n")
+            if reviewing_research:
+                return {"next_agent": "writer", "supervisor_feedback": reply}
+            else:
+                return {"next_agent": "finish", "supervisor_feedback": reply}
+
+        print(f"  [Supervisor] ✗ {target} 未通过，打回重做\n")
+        if reviewing_research:
+            return {
+                "next_agent": "research",
+                "supervisor_feedback": reply,
+                "retry_count": retry_count + 1,
+            }
+        else:
+            return {
+                "next_agent": "writer",
+                "supervisor_feedback": reply,
+                "retry_count": retry_count + 1,
+            }
+
+
+def router(state: AgentState) -> Literal["research", "writer", "supervisor", "__end__"]:
     """路由逻辑：决定下一步执行哪个 Agent"""
     next_agent = state.get("next_agent", "research")
     if next_agent == "finish":
@@ -254,24 +356,30 @@ def router(state: AgentState) -> Literal["research", "writer", "__end__"]:
 # ============================================================
 
 def build_multi_agent_graph():
-    """构建 Research → Writer → End 的多 Agent 流程图"""
+    """构建 Research → Supervisor → Writer → Supervisor → End 的多 Agent 流程图"""
 
     workflow = StateGraph(AgentState)
 
     # 添加节点
     workflow.add_node("research", research_agent)
     workflow.add_node("writer", writer_agent)
+    workflow.add_node("supervisor", supervisor_agent)
 
     # 设置入口
     workflow.set_entry_point("research")
 
-    # 添加边：research -> writer -> end
+    # 添加边：research → supervisor → writer → supervisor → end
     workflow.add_conditional_edges("research", router, {
+        "supervisor": "supervisor",
+        "__end__": END,
+    })
+    workflow.add_conditional_edges("supervisor", router, {
+        "research": "research",
         "writer": "writer",
         "__end__": END,
     })
     workflow.add_conditional_edges("writer", router, {
-        "research": "research",
+        "supervisor": "supervisor",
         "__end__": END,
     })
 
@@ -295,6 +403,8 @@ if __name__ == "__main__":
         "next_agent": "research",
         "research_result": "",
         "final_output": "",
+        "supervisor_feedback": "",
+        "retry_count": 0,
     })
 
     print("\n" + "=" * 55)
