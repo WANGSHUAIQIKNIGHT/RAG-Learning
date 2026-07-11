@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>和我约会吧 ♡</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #fce4ec 0%, #f8bbd0 50%, #f48fb1 100%);
+    padding: 20px; overflow: hidden;
+  }
+
+  /* ========== 爱心飘落背景 ========== */
+  .hearts-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .heart-float {
+    position: absolute; top: -40px;
+    font-size: 20px; animation: fall linear infinite;
+    opacity: 0.4;
+  }
+  @keyframes fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0.4; }
+    100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+  }
+
+  .card {
+    position: relative; z-index: 1;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(20px);
+    width: 100%; max-width: 420px;
+    border-radius: 32px; padding: 48px 32px 40px;
+    box-shadow: 0 20px 60px rgba(233,30,99,0.15);
+    text-align: center;
+    transition: opacity 0.5s, transform 0.5s;
+  }
+  .card.hide { opacity: 0; transform: scale(0.9) translateY(20px); pointer-events: none; position: absolute; }
+
+  .emoji-icon { font-size: 64px; margin-bottom: 16px; }
+  h2 { font-size: 24px; color: #333; margin-bottom: 8px; font-weight: 700; }
+  .desc { font-size: 15px; color: #888; margin-bottom: 32px; line-height: 1.6; }
+  .highlight { color: #e91e63; font-weight: 600; }
+
+  /* ========== 按钮 ========== */
+  .btn-group { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; position: relative; }
+  .btn {
+    min-width: 120px; padding: 14px 28px; border: none; border-radius: 60px;
+    font-size: 17px; font-weight: 600; cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    position: relative; user-select: none;
+  }
+  .btn-yes {
+    background: linear-gradient(135deg, #e91e63, #f06292);
+    color: #fff; box-shadow: 0 4px 15px rgba(233,30,99,0.3);
+  }
+  .btn-yes:hover { transform: scale(1.05); box-shadow: 0 6px 25px rgba(233,30,99,0.4); }
+
+  .btn-no {
+    background: #f5f5f5; color: #999;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    position: absolute;
+  }
+
+  /* ========== 日期选择 ========== */
+  .date-picker { margin: 24px 0; }
+  .date-picker input {
+    width: 100%; padding: 16px 20px; border: 2px solid #f0f0f0;
+    border-radius: 16px; font-size: 18px; text-align: center;
+    outline: none; transition: border-color 0.3s;
+    font-family: inherit;
+  }
+  .date-picker input:focus { border-color: #e91e63; }
+
+  /* ========== 食物选择 ========== */
+  .food-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 24px 0; }
+  .food-item {
+    padding: 16px 8px; border: 2px solid #f0f0f0; border-radius: 16px;
+    font-size: 18px; cursor: pointer; transition: all 0.25s;
+    background: #fff;
+  }
+  .food-item:hover { border-color: #f06292; background: #fce4ec; }
+  .food-item.selected { border-color: #e91e63; background: #fce4ec; color: #e91e63; font-weight: 600; box-shadow: 0 2px 12px rgba(233,30,99,0.15); }
+  .food-item .emoji { font-size: 32px; display: block; margin-bottom: 4px; }
+
+  /* ========== 最终页 ========== */
+  .final-icon { font-size: 80px; margin-bottom: 16px; }
+  .summary { font-size: 16px; color: #555; margin: 16px 0 32px; line-height: 1.8; }
+  .summary span { color: #e91e63; font-weight: 600; }
+
+  /* ========== 通用组件 ========== */
+  .btn-primary {
+    width: 100%; padding: 16px; border: none; border-radius: 60px;
+    background: linear-gradient(135deg, #e91e63, #f06292);
+    color: #fff; font-size: 17px; font-weight: 600;
+    cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(233,30,99,0.3);
+    margin-top: 8px;
+  }
+  .btn-primary:hover { transform: scale(1.02); box-shadow: 0 6px 25px rgba(233,30,99,0.4); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+  .card-container { position: relative; width: 100%; max-width: 420px; min-height: 400px; display: flex; align-items: center; justify-content: center; }
+
+  /* ========== 为拒绝按钮逃跑预留空间 ========== */
+  .btn-no-wrapper { position: relative; width: 120px; height: 52px; display: inline-block; }
+
+  /* ========== 移动端适配 ========== */
+  @media (max-width: 480px) {
+    .card { padding: 32px 20px 28px; }
+    .food-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn { min-width: 100px; padding: 12px 20px; font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hearts-bg" id="heartsBg"></div>
+
+<div class="card-container">
+  <!-- ===== Step 1: 约会邀请 ===== -->
+  <div class="card" id="step1">
+    <div class="emoji-icon">🥰</div>
+    <h2>愿意和我约会吗？</h2>
+    <p class="desc">我保证这会是一次超棒的体验 ✨</p>
+    <div class="btn-group">
+      <button class="btn btn-yes" onclick="nextStep(1)">❤️ 同意</button>
+      <div class="btn-no-wrapper" id="noWrapper">
+        <button class="btn btn-no" id="btnNo" onmouseenter="runAway(event)" ontouchstart="runAway(event)" style="position:absolute;left:0;top:0;">拒绝 😅</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Step 2: 选日期 ===== -->
+  <div class="card hide" id="step2">
+    <div class="emoji-icon">📅</div>
+    <h2>想哪天约会呢？</h2>
+    <p class="desc">选一个我们都空闲的好日子 🎀</p>
+    <div class="date-picker">
+      <input type="date" id="dateInput" min="2026-07-12">
+    </div>
+    <button class="btn-primary" id="dateBtn" disabled onclick="nextStep(2)">确定日期 💕</button>
+  </div>
+
+  <!-- ===== Step 3: 选吃的 ===== -->
+  <div class="card hide" id="step3">
+    <div class="emoji-icon">🍽️</div>
+    <h2>想吃什么呢？</h2>
+    <p class="desc">选一个你最想吃的，我请客 🎉</p>
+    <div class="food-grid" id="foodGrid"></div>
+    <button class="btn-primary" id="foodBtn" disabled onclick="nextStep(3)">就这个了！😋</button>
+  </div>
+
+  <!-- ===== Step 4: 完成 ===== -->
+  <div class="card hide" id="step4">
+    <div class="final-icon">🎉</div>
+    <h2>约会已就绪！</h2>
+    <div class="summary" id="summary"></div>
+    <p style="color:#e91e63;font-size:20px;margin-top:8px;">超期待跟你见面！！💕</p>
+  </div>
+</div>
+
+<script>
+// ===== 食物数据 =====
+const foods = [
+  { emoji: '🥘', name: '火锅' },
+  { emoji: '🍖', name: '烧烤' },
+  { emoji: '🍣', name: '日料' },
+  { emoji: '🍕', name: '披萨' },
+  { emoji: '🍜', name: '拉面' },
+  { emoji: '🥩', name: '牛排' },
+  { emoji: '🌮', name: '墨西哥卷' },
+  { emoji: '🍰', name: '甜品' },
+];
+
+let selectedFood = null;
+let currentStep = 1;
+
+// ===== 选中的日期和食物 =====
+let chosenDate = '';
+let chosenFood = '';
+
+// ===== 初始化食物网格 =====
+function initFoodGrid() {
+  const grid = document.getElementById('foodGrid');
+  grid.innerHTML = '';
+  foods.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'food-item';
+    div.innerHTML = `<span class="emoji">${f.emoji}</span>${f.name}`;
+    div.onclick = () => {
+      document.querySelectorAll('.food-item').forEach(el => el.classList.remove('selected'));
+      div.classList.add('selected');
+      selectedFood = f;
+      document.getElementById('foodBtn').disabled = false;
+    };
+    grid.appendChild(div);
+  });
+}
+
+// ===== 页面切换 =====
+function showStep(n) {
+  document.querySelectorAll('.card').forEach(el => el.classList.add('hide'));
+  document.getElementById(`step${n}`).classList.remove('hide');
+  currentStep = n;
+}
+
+function nextStep(from) {
+  if (from === 1) {
+    chosenDate = '';
+    selectedFood = null;
+    document.getElementById('dateInput').value = '';
+    document.getElementById('dateBtn').disabled = true;
+    showStep(2);
+  } else if (from === 2) {
+    chosenDate = document.getElementById('dateInput').value;
+    initFoodGrid();
+    selectedFood = null;
+    document.getElementById('foodBtn').disabled = true;
+    showStep(3);
+  } else if (from === 3) {
+    chosenFood = selectedFood.name;
+    // 显示总结
+    const d = new Date(chosenDate);
+    const dateStr = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+    document.getElementById('summary').innerHTML =
+      `📅 <span>${dateStr}</span><br>🍽️ 一起去吃 <span>${chosenFood}</span>`;
+    showStep(4);
+    // 放烟花效果
+    launchConfetti();
+  }
+}
+
+// ===== 拒绝按钮逃跑 =====
+function runAway(e) {
+  const btn = document.getElementById('btnNo');
+  const wrapper = document.getElementById('noWrapper');
+  const wrapperRect = wrapper.getBoundingClientRect();
+  const btnW = btn.offsetWidth;
+  const btnH = btn.offsetHeight;
+
+  // 可用移动范围
+  const maxX = wrapperRect.width - btnW;
+  const maxY = wrapperRect.height - btnH;
+
+  // 随机新位置
+  let newX = Math.random() * maxX;
+  let newY = Math.random() * maxY;
+
+  // 如果间距太小就多跳几次
+  const currentX = parseInt(btn.style.left) || 0;
+  const currentY = parseInt(btn.style.top) || 0;
+  if (Math.abs(newX - currentX) < 20 && Math.abs(newY - currentY) < 20) {
+    newX = (newX + 40) % (maxX || 1);
+    newY = (newY + 40) % (maxY || 1);
+  }
+
+  btn.style.left = newX + 'px';
+  btn.style.top = newY + 'px';
+  btn.style.transition = 'left 0.08s, top 0.08s';
+}
+
+// 触摸设备：拒绝按钮在触摸时也逃跑
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('btnNo');
+  btn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    runAway(e);
+  });
+});
+
+// ===== 日期选择反馈 =====
+document.getElementById('dateInput').addEventListener('change', function() {
+  document.getElementById('dateBtn').disabled = !this.value;
+});
+
+// ===== 随机爱心背景 =====
+function createHearts() {
+  const container = document.getElementById('heartsBg');
+  const emojis = ['❤️', '💕', '💗', '💖', '🌸', '✨'];
+  for (let i = 0; i < 20; i++) {
+    const span = document.createElement('span');
+    span.className = 'heart-float';
+    span.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    span.style.left = Math.random() * 100 + '%';
+    span.style.fontSize = (14 + Math.random() * 20) + 'px';
+    span.style.animationDuration = (8 + Math.random() * 12) + 's';
+    span.style.animationDelay = (Math.random() * 15) + 's';
+    container.appendChild(span);
+  }
+}
+createHearts();
+
+// ===== 简易彩花效果 =====
+function launchConfetti() {
+  const colors = ['#e91e63', '#f06292', '#f48fb1', '#ff80ab', '#ff4081', '#ffd54f', '#69f0ae'];
+  for (let i = 0; i < 60; i++) {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      position: fixed; width: ${6 + Math.random() * 8}px; height: ${6 + Math.random() * 8}px;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+      left: ${Math.random() * 100}vw; top: -20px; z-index: 999;
+      pointer-events: none;
+      animation: confettiFall ${2 + Math.random() * 3}s ease-in forwards;
+      animation-delay: ${Math.random() * 1.5}s;
+    `;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 6000);
+  }
+  // 动态注入关键帧
+  if (!document.getElementById('confettiStyle')) {
+    const style = document.createElement('style');
+    style.id = 'confettiStyle';
+    style.textContent = `
+      @keyframes confettiFall {
+        0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(100vh) rotate(${360 + Math.random() * 720}deg); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+</script>
+</body>
+</html>
